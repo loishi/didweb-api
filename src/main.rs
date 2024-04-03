@@ -5,7 +5,7 @@ use tokio::sync::RwLock;
 
 mod auth;
 mod database;
-mod handlers;
+mod handler;
 
 #[tokio::main]
 async fn main() {
@@ -13,10 +13,10 @@ async fn main() {
     let store = Arc::new(RwLock::new(std::collections::HashMap::new()));
 
     let app = Router::new()
-        .route("/did:web/:did", get(handlers::resolve_did_web))
-        .route("/did:web", post(handlers::create_did_web))
-        .route("/did:web/:did", post(handlers::update_did_web))
-        .route("/did:web/:did", axum::routing::delete(handlers::delete_did_web))
+        .route("/did:web/:did", get(handler::resolve_did_web))
+        .route("/did:web", post(handler::create_did_web))
+        .route("/did:web/:did", post(handler::update_did_web))
+        .route("/did:web/:did", axum::routing::delete(handler::delete_did_web))
         .with_state(pool)
         .with_state(store);
 
