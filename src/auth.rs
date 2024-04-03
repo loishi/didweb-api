@@ -1,9 +1,9 @@
 use argon2::{self, Config};
-use rand_core::OsRng;
+use rand::Rng;
 use sqlx::SqlitePool;
 
 pub async fn hash_password(password: &str) -> Result<String, argon2::Error> {
-    let salt = rand_core::OsRng.next_u64().to_be_bytes();
+    let salt = rand::thread_rng().gen::<[u8; 16]>();
     let config = Config::default();
     let hash = argon2::hash_encoded(password.as_bytes(), &salt, &config)?;
     Ok(hash)

@@ -6,19 +6,15 @@ edition = "2021"
 
 [dependencies]
 axum = { version = "0.7.5", default-features = false }
-hyper = { version = "1.2.0", features = ["full"]}
 tokio = { version = "1.36.0", features = ["full"]}
-tower = "0.4.13"
-mime = "0.3.17"
-reqwest = "0.12.2"
-tower-service = "0.3.2"
 serde = { version = "1.0.197", features = ["derive"]}
 worker = { version = "0.0.24", features = ["http"]} 
 serde_json = "1.0.115"
 sqlx = { version = "0.7.4", features = ["runtime-tokio-native-tls", "sqlite"] }
-tracing = "0.1.40"
 argon2 = "0.5.3"
-rand-core = { version = "0.6.4", features = ["std"] }
-tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
-console_error_panic_hook = { version = "0.1.7" }
-wasm-bindgen-futures = "0.4.41"
+rand = "0.8.5" 
+# tower = "0.4.13"
+# mime = "0.3.17"
+# reqwest = "0.12.2"
+# tower-service = "0.3.2"
+# hyper = { version = "1.2.0", features = ["full"]}
