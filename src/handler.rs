@@ -1,6 +1,8 @@
 use axum::{extract::Path, extract::State, http::StatusCode, Json};
 use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
+use std::sync::Arc;
+use tokio::sync::RwLock;
 
 use crate::auth::authenticate;
 
@@ -10,29 +12,32 @@ pub struct Credentials {
     password: String,
 }
 
-#[derive(Serialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct DidWebDocument {
     // Define the structure of the DID document
     // Example:
-    // id: String,
-    // context: Vec<String>,
-    // verification_method: Vec<VerificationMethod>,
-    // authentication: Vec<String>,
-    // ...
+    id: String,
+    context: Vec<String>,
+    // Add other relevant fields
 }
 
-pub async fn resolve_did_web(Path(did): Path<String>) -> Result<Json<DidWebDocument>, StatusCode> {
-    // Resolve the did:web and return the corresponding DID document
-    // Implement the logic based on the did:web specification
-    // Example:
-    // 1. Parse the did:web identifier
-    // 2. Retrieve the DID document from storage (e.g., file system, database)
-    // 3. Return the DID document as JSON
-    unimplemented!()
+type DidWebStore = Arc<RwLock<std::collections::HashMap<String, DidWebDocument>>>;
+
+pub async fn resolve_did_web(
+    Path(did): Path<String>,
+    State(store): State<DidWebStore>,
+) -> Result<Json<DidWebDocument>, StatusCode> {
+    let store = store.read().await;
+    let doc = store.get(&did).cloned();
+    match doc {
+        Some(doc) => Ok(Json(doc)),
+        None => Err(StatusCode::NOT_FOUND),
+    }
 }
 
 pub async fn create_did_web(
     State(pool): State<SqlitePool>,
+    State(store): State<DidWebStore>,
     credentials: Json<Credentials>,
     document: Json<DidWebDocument>,
 ) -> Result<StatusCode, StatusCode> {
@@ -42,17 +47,17 @@ pub async fn create_did_web(
     if !authenticated {
         return Err(StatusCode::UNAUTHORIZED);
     }
-    // Create a new did:web and store the corresponding DID document
-    // Implement the logic based on the did:web specification
-    // Example:
-    // 1. Generate a new did:web identifier
-    // 2. Store the DID document in storage (e.g., file system, database)
-    // 3. Return a success status code
-    unimplemented!()
+    let mut store = store.write().await;
+    if store.contains_key(&document.id) {
+        return Err(StatusCode::CONFLICT);
+    }
+    store.insert(document.id.clone(), document.into_inner());
+    Ok(StatusCode::CREATED)
 }
 
 pub async fn update_did_web(
     State(pool): State<SqlitePool>,
+    State(store): State<DidWebStore>,
     credentials: Json<Credentials>,
     Path(did): Path<String>,
     document: Json<DidWebDocument>,
@@ -63,19 +68,17 @@ pub async fn update_did_web(
     if !authenticated {
         return Err(StatusCode::UNAUTHORIZED);
     }
-    // Update the specified did:web with the provided DID document
-    // Implement the logic based on the did:web specification
-    // Example:
-    // 1. Parse the did:web identifier
-    // 2. Retrieve the existing DID document from storage
-    // 3. Update the DID document with the provided data
-    // 4. Store the updated DID document in storage
-    // 5. Return a success status code
-    unimplemented!()
+    let mut store = store.write().await;
+    if !store.contains_key(&did) {
+        return Err(StatusCode::NOT_FOUND);
+    }
+    store.insert(did, document.into_inner());
+    Ok(StatusCode::NO_CONTENT)
 }
 
 pub async fn delete_did_web(
     State(pool): State<SqlitePool>,
+    State(store): State<DidWebStore>,
     credentials: Json<Credentials>,
     Path(did): Path<String>,
 ) -> Result<StatusCode, StatusCode> {
@@ -85,11 +88,10 @@ pub async fn delete_did_web(
     if !authenticated {
         return Err(StatusCode::UNAUTHORIZED);
     }
-    // Delete the specified did:web and its corresponding DID document
-    // Implement the logic based on the did:web specification
-    // Example:
-    // 1. Parse the did:web identifier
-    // 2. Delete the DID document from storage
-    // 3. Return a success status code
-    unimplemented!()
+    let mut store = store.write().await;
+    if !store.contains_key(&did) {
+        return Err(StatusCode::NOT_FOUND);
+    }
+    store.remove(&did);
+    Ok(StatusCode::NO_CONTENT)
 }
