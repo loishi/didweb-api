@@ -1,14 +1,14 @@
-
+use crate::auth::authenticate;
 use axum::{
     extract::{Path, State},
     http::StatusCode,
-    Json
+    Json,
+    response::IntoResponse,
 };
 use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use crate::auth::authenticate;
 
 #[derive(Deserialize)]
 pub struct Credentials {
@@ -41,12 +41,12 @@ type DidWebStore = Arc<RwLock<std::collections::HashMap<String, Document>>>;
 pub async fn resolve_did_web(
     Path(did): Path<String>,
     State(store): State<DidWebStore>,
-) -> Result<Json<Document>, StatusCode> {
+) -> impl IntoResponse {
     let store = store.read().await;
     let doc = store.get(&did).cloned();
     match doc {
-        Some(doc) => Ok(Json(doc)),
-        None => Err(StatusCode::NOT_FOUND),
+        Some(doc) => (StatusCode::OK, Json(doc)).into_response(),
+        None => StatusCode::NOT_FOUND.into_response(),
     }
 }
 
@@ -55,18 +55,18 @@ pub async fn create_did_web(
     State(store): State<DidWebStore>,
     Json(credentials): Json<Credentials>,
     Json(document): Json<Document>,
-) -> Result<Json<Document>, (StatusCode, String)> {
+) -> impl IntoResponse {
     match authenticate(&pool, &credentials.username, &credentials.password).await {
         Ok(authenticated) if authenticated => {
             let mut store = store.write().await;
             if store.contains_key(&document.id) {
-                Err((StatusCode::CONFLICT, "DID already exists".to_string()))
+                (StatusCode::CONFLICT, "DID already exists".to_string()).into_response()
             } else {
                 store.insert(document.id.clone(), document.clone());
-                Ok(Json(document))
+                (StatusCode::CREATED, Json(document)).into_response()
             }
         }
-        _ => Err((StatusCode::UNAUTHORIZED, "Unauthorized".to_string())),
+        _ => (StatusCode::UNAUTHORIZED, "Unauthorized".to_string()).into_response(),
     }
 }
 
@@ -76,18 +76,18 @@ pub async fn update_did_web(
     Path(did): Path<String>,
     Json(credentials): Json<Credentials>,
     Json(document): Json<Document>,
-) -> Result<(), (StatusCode, String)> {
+) -> impl IntoResponse {
     match authenticate(&pool, &credentials.username, &credentials.password).await {
         Ok(authenticated) if authenticated => {
             let mut store = store.write().await;
             if !store.contains_key(&did) {
-                Err((StatusCode::NOT_FOUND, "DID not found".to_string()))
+                (StatusCode::NOT_FOUND, "DID not found".to_string()).into_response()
             } else {
-                store.insert(did, document.clone());
-                Ok(())
+                store.insert(did, document);
+                StatusCode::NO_CONTENT.into_response()
             }
         }
-        _ => Err((StatusCode::UNAUTHORIZED, "Unauthorized".to_string())),
+        _ => (StatusCode::UNAUTHORIZED, "Unauthorized".to_string()).into_response(),
     }
 }
 
@@ -96,17 +96,17 @@ pub async fn delete_did_web(
     State(store): State<DidWebStore>,
     Path(did): Path<String>,
     Json(credentials): Json<Credentials>,
-) -> Result<(), (StatusCode, String)> {
+) -> impl IntoResponse {
     match authenticate(&pool, &credentials.username, &credentials.password).await {
         Ok(authenticated) if authenticated => {
             let mut store = store.write().await;
             if !store.contains_key(&did) {
-                Err((StatusCode::NOT_FOUND, "DID not found".to_string()))
+                (StatusCode::NOT_FOUND, "DID not found".to_string()).into_response()
             } else {
                 store.remove(&did);
-                Ok(())
+                StatusCode::NO_CONTENT.into_response()
             }
         }
-        _ => Err((StatusCode::UNAUTHORIZED, "Unauthorized".to_string())),
+        _ => (StatusCode::UNAUTHORIZED, "Unauthorized".to_string()).into_response(),
     }
 }
